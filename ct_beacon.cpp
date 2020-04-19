@@ -58,13 +58,14 @@ public:
         int ret = hci_send_req(dev, &rq, 1000);
         if (ret < 0) {
             throw std::runtime_error("Could not send HCI request");
-        } /*else if (status != 0) {
+        } else if (status != 0) {
             std::stringstream s;
             s << "HCI error during " << std::hex << (int)rq.ocf << ": " << (int)status;
             throw std::runtime_error(s.str());
-        }*/
+        }
     }
-
+    
+    void reset() {}
     void start_advertising(const uint8_t (&rpi)[16]);
     void stop_advertising();
 };
@@ -137,9 +138,10 @@ int main() {
     for (auto i = 0; i < 16; i++) rpi[i] = i;
     CT_Beacon beacon;
     beacon.start_advertising(rpi);
-    std::cout << "Advertising started...";
-    usleep(2000000);
+    std::cout << "Advertising started..." << std::flush;
+    std::cin.get();
     beacon.stop_advertising();
     std::cout << "advertising stopped." << std::endl;
+    return 0;
 }
 
