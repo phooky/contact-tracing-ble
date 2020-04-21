@@ -85,13 +85,6 @@ std::vector<uint8_t> make_rpi(const std::vector<uint8_t>& dtk, uint8_t timeInter
     return mac.read(16);
 }
 
-// most of this is cacheable
-std::vector<uint8_t> getRPI() {
-    TracingKey tk("test.key");
-    auto [ day, time ] = getDayAndTimeInterval();
-    auto dtk = tk.daily_tracing_key(day);
-    return make_rpi(dtk, time);
-}
 
 int main_test_crypto() {
     TracingKey tk("test.key");

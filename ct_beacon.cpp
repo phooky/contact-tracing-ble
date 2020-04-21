@@ -17,7 +17,7 @@ const uint8_t SERVICE_DATA16_TYPE = 0x16;
 const uint8_t CT_FLAGS = 0x1A;
 const uint16_t CT_SERVICE_UUID16 = 0xFD6F;
 
-uint8_t build_ct_packet(uint8_t* packet_data, const uint8_t (&rpi)[16]) {
+uint8_t build_ct_packet(uint8_t* packet_data, const std::vector<uint8_t>& rpi) {
     // Flags section
     packet_data[0] = 0x02; // section length
     packet_data[1] = FLAGS_TYPE;
@@ -67,7 +67,7 @@ void CT_Beacon::do_req(struct hci_request& rq) {
 void CT_Beacon::reset() {}
 
 
-void CT_Beacon::start_advertising(const uint8_t (&rpi)[16]) {
+void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi) {
     //
     // Set advertising parameters
     //
@@ -130,7 +130,7 @@ void CT_Beacon::stop_advertising() {
 }
 
 int test_beacon_main() {
-    uint8_t rpi[16];
+    std::vector<uint8_t> rpi(16);
     for (auto i = 0; i < 16; i++) rpi[i] = i;
     CT_Beacon beacon;
     beacon.start_advertising(rpi);

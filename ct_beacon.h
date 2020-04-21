@@ -2,6 +2,7 @@
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 #include <string>
+#include <vector>
 
 class CT_Beacon {
     int dev;
@@ -11,7 +12,7 @@ public:
     ~CT_Beacon();
     
     void reset();
-    void start_advertising(const uint8_t (&rpi)[16]);
+    void start_advertising(const std::vector<uint8_t> &rpi);
     void stop_advertising();
 };
 
