@@ -5,6 +5,7 @@
 #include <iostream>
 #include <endian.h>
 #include <vector>
+#include "ct_crypto.h"
 
 std::tuple<uint32_t,uint8_t> getDayAndTimeInterval() {
     time_t t = time(NULL);
@@ -45,30 +46,19 @@ public:
     }
 };
 
-
-struct DailyTracingKey;
-struct RollingProximityIdentifier;
-
-struct TracingKey : public std::vector<uint8_t> {
-    const static size_t KEYLEN = 32;
-
-    TracingKey(const std::string& path) : std::vector<uint8_t>(KEYLEN) {
-        std::ifstream f(path);
-        if (f) { 
-            f.read((char*)data(), size());
-            f.close();
-        } else {
-            gcry_randomize(data(), size(), GCRY_VERY_STRONG_RANDOM);
-            // store to path
-            std::ofstream f(path);
-            f.write((char*)data(), size());
-            f.close();
-        }
+TracingKey::TracingKey(const std::string& path) : std::vector<uint8_t>(KEYLEN) {
+    std::ifstream f(path);
+    if (f) { 
+        f.read((char*)data(), size());
+        f.close();
+    } else {
+        gcry_randomize(data(), size(), GCRY_VERY_STRONG_RANDOM);
+        // store to path
+        std::ofstream f(path);
+        f.write((char*)data(), size());
+        f.close();
     }
-    std::vector<uint8_t> daily_tracing_key(uint32_t dayNumber);
-};
-
-std::vector<uint8_t> make_rpi(const std::vector<uint8_t>& dtk, uint8_t timeIntervalNumber);
+}
 
 std::vector<uint8_t> TracingKey::daily_tracing_key(uint32_t dayNumber) {
     // HKDF (tk , NULL , ( UTF8("CT-DTK") || Di ),16)

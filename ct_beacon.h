@@ -1,4 +1,7 @@
+#include <cstdint>
+#include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
+#include <string>
 
 class CT_Beacon {
     int dev;
