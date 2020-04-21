@@ -6,6 +6,8 @@
 #include <sstream>
 #include <unistd.h>
 
+#include "ct_beacon.h"
+
 // Hi. Guess who learned a lot about Bluetooth Low Energy advertising today?
 
 const uint8_t FLAGS_TYPE = 0x01;
@@ -37,38 +39,32 @@ const auto MIN_INTERVAL_MS = 200;
 const auto MAX_INTERVAL_MS = 270;
 const auto MS_PER_INTERVAL = 0.625;
 
-class CT_Beacon {
-public:
-    int dev;
-    CT_Beacon(const std::string& device_name = "hci0") {
-        int devid = hci_devid(device_name.c_str());
-        if (devid < 0) throw std::runtime_error("failed hci_devid");
-        dev = hci_open_dev(devid);
-        if (dev < 0) throw std::runtime_error("failed to open hci device");
-    }
+CT_Beacon::CT_Beacon(const std::string& device_name) {
+    int devid = hci_devid(device_name.c_str());
+    if (devid < 0) throw std::runtime_error("failed hci_devid");
+    dev = hci_open_dev(devid);
+    if (dev < 0) throw std::runtime_error("failed to open hci device");
+}
 
-    ~CT_Beacon() {
-        if (dev >= 0) hci_close_dev(dev);
-    }
+CT_Beacon::~CT_Beacon() {
+    if (dev >= 0) hci_close_dev(dev);
+}
 
-    void do_req(struct hci_request& rq) {
-        uint8_t status = 0;
-        rq.rparam = &status;
-        rq.rlen = 1;
-        int ret = hci_send_req(dev, &rq, 1000);
-        if (ret < 0) {
-            throw std::runtime_error("Could not send HCI request");
-        } else if (status != 0) {
-            std::stringstream s;
-            s << "HCI error during " << std::hex << (int)rq.ocf << ": " << (int)status;
-            throw std::runtime_error(s.str());
-        }
+void CT_Beacon::do_req(struct hci_request& rq) {
+    uint8_t status = 0;
+    rq.rparam = &status;
+    rq.rlen = 1;
+    int ret = hci_send_req(dev, &rq, 1000);
+    if (ret < 0) {
+        throw std::runtime_error("Could not send HCI request");
+    } else if (status != 0) {
+        std::stringstream s;
+        s << "HCI error during " << std::hex << (int)rq.ocf << ": " << (int)status;
+        throw std::runtime_error(s.str());
     }
-    
-    void reset() {}
-    void start_advertising(const uint8_t (&rpi)[16]);
-    void stop_advertising();
-};
+}
+
+void CT_Beacon::reset() {}
 
 
 void CT_Beacon::start_advertising(const uint8_t (&rpi)[16]) {
@@ -133,7 +129,7 @@ void CT_Beacon::stop_advertising() {
     do_req(rq);
 }
 
-int main() {
+int test_beacon_main() {
     uint8_t rpi[16];
     for (auto i = 0; i < 16; i++) rpi[i] = i;
     CT_Beacon beacon;
