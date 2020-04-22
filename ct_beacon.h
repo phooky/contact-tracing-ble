@@ -14,5 +14,8 @@ public:
     void reset();
     void start_advertising(const std::vector<uint8_t> &rpi);
     void stop_advertising();
+
+    void start_listening();
+    void stop_listening();
 };
 

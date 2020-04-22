@@ -40,9 +40,9 @@ const auto MAX_INTERVAL_MS = 270;
 const auto MS_PER_INTERVAL = 0.625;
 
 CT_Beacon::CT_Beacon(const std::string& device_name) {
-    int devid = hci_devid(device_name.c_str());
-    if (devid < 0) throw std::runtime_error("failed hci_devid");
-    dev = hci_open_dev(devid);
+    int dev_id = hci_devid(device_name.c_str());
+    if (dev_id < 0) throw std::runtime_error("failed hci_devid");
+    dev = hci_open_dev(dev_id);
     if (dev < 0) throw std::runtime_error("failed to open hci device");
 }
 
@@ -127,6 +127,30 @@ void CT_Beacon::stop_advertising() {
     rq.cparam = &advertise_cp;
     rq.clen = LE_SET_ADVERTISE_ENABLE_CP_SIZE;
     do_req(rq);
+}
+
+void CT_Beacon::start_listening() {
+    // disable scanning
+	if (hci_le_set_scan_enable(dev, 0x00, 0x00, 1000) < 0) 
+        throw std::runtime_error("Could not enable LE scan.");
+    // set scan parameters
+    // scan type = 0 (passive, no PDUs sent)
+    // interval = 0x40 (40ms)
+    // window = 0x30 (30ms)
+    // own_address = random (0x1)
+    // scanning filter policy = 0 (everything not directed to another device)
+    //
+	if (hci_le_set_scan_parameters(dev, 0x00, htobs(0x40), htobs(0x30),
+            0x01, 0x00, 1000) < 0) 
+        throw std::runtime_error("Could not set LE scan parameters.");
+    // enable scanning with duplicate filtering enabled
+	if (hci_le_set_scan_enable(dev, 0x01, 0x01, 1000) < 0) 
+        throw std::runtime_error("Could not enable LE scan.");
+}
+
+void CT_Beacon::stop_listening() {
+	if (hci_le_set_scan_enable(dev, 0x00, 0x00, 1000) < 0) 
+        throw std::runtime_error("Could not enable LE scan.");
 }
 
 int test_beacon_main() {
