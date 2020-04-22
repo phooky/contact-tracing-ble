@@ -1,6 +1,7 @@
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
+#include <poll.h>
 
 #include <iostream>
 #include <sstream>
@@ -133,6 +134,15 @@ void CT_Beacon::start_listening() {
     // disable scanning
 	if (hci_le_set_scan_enable(dev, 0x00, 0x00, 1000) < 0) 
         throw std::runtime_error("Could not enable LE scan.");
+
+    // set filter
+    struct hci_filter filter;
+    hci_filter_clear(&filter);
+    hci_filter_set_ptype(HCI_EVENT_PKT, &filter);
+    hci_filter_set_event(EVT_LE_META_EVENT, &filter);
+    if (setsockopt(dev, SOL_HCI, HCI_FILTER, &filter, sizeof(filter)) < 0)
+        throw std::runtime_error("Could not set filter on socket.");
+
     // set scan parameters
     // scan type = 0 (passive, no PDUs sent)
     // interval = 0x40 (40ms)
@@ -151,6 +161,25 @@ void CT_Beacon::start_listening() {
 void CT_Beacon::stop_listening() {
 	if (hci_le_set_scan_enable(dev, 0x00, 0x00, 1000) < 0) 
         throw std::runtime_error("Could not enable LE scan.");
+}
+
+
+int CT_Beacon::log_to_stream(std::ostream& out, int timeout_ms) {
+    struct pollfd fds = { dev, POLLIN, 0 };
+    int rv = poll(&fds, 1, timeout_ms); 
+    if (rv < 0) throw new std::runtime_error("Error during poll.");
+    if (rv > 0) {
+        uint8_t buf[HCI_MAX_EVENT_SIZE];
+        ssize_t len = read(dev, buf, HCI_MAX_EVENT_SIZE);
+        evt_le_meta_event* mevt = (evt_le_meta_event*)(buf + 1 + HCI_EVENT_HDR_SIZE);
+        if (mevt->subevent == 0x02) { // advertising report
+            le_advertising_info* ad = (le_advertising_info*)(mevt->data + 1);
+            len -= (uint8_t*)ad - buf;
+            out.write((char*)ad->data,len);
+        }
+        return 1;
+    }
+    return 0;
 }
 
 int test_beacon_main() {

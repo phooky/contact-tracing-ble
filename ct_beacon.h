@@ -17,5 +17,7 @@ public:
 
     void start_listening();
     void stop_listening();
+
+    int log_to_stream(std::ostream& out, int timeout_ms);
 };
 
