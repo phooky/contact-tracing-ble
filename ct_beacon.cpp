@@ -77,6 +77,8 @@ void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi) {
     adv_params_cp.max_interval = htobs(MAX_INTERVAL_MS/MS_PER_INTERVAL);
     adv_params_cp.advtype = 0x03; // ADV_NOCONN_IND
     adv_params_cp.own_bdaddr_type = 0x01; // Random device address
+    adv_params_cp.direct_bdaddr_type = 0x01; // Random device address
+    adv_params_cp.direct_bdaddr = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 }; // test address for today
     adv_params_cp.chan_map = 0x07; // All three channels in use
 
     struct hci_request rq = {};

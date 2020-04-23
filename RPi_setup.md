@@ -19,6 +19,9 @@ Setting up contact tracing on the Raspberry Pi
     1. Install dependencies. `sudo apt install git libbluetooth-dev libgcrypt-dev`
     2. Clone repository. `git clone https://github.com/phooky/contact-tracing-ble.git`
     3. Build ctd. `cd contact-tracing-ble && make`
-4. Run the contact tracing daemon with `sudo ./ctd`
+4. Run the contact tracing daemon.
+    1. Stop the existing bluetooth daemon. `sudo systemctl stop bluetooth`
+    2. Bring up the hci0 interface `sudo hciconfig hci0 up`
+    3. Start the BLE contact tracking daemon. `sudo ./ctd`
 
 
