@@ -6,7 +6,7 @@
 
 class CT_Beacon {
     int dev;
-    void do_req(struct hci_request& rq);
+    void do_req(uint16_t ocf, void* cparam, int clen);
 public:
     CT_Beacon(const std::string& device_name = "hci0");
     ~CT_Beacon();

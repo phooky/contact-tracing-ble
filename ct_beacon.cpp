@@ -51,7 +51,12 @@ CT_Beacon::~CT_Beacon() {
     if (dev >= 0) hci_close_dev(dev);
 }
 
-void CT_Beacon::do_req(struct hci_request& rq) {
+void CT_Beacon::do_req(uint16_t ocf, void* cparam, int clen) {
+    struct hci_request rq = {};
+    rq.ogf = OGF_LE_CTL;
+    rq.ocf = ocf;
+    rq.cparam = cparam;
+    rq.clen = clen;
     uint8_t status = 0;
     rq.rparam = &status;
     rq.rlen = 1;
@@ -81,49 +86,28 @@ void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi) {
     adv_params_cp.direct_bdaddr = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 }; // test address for today
     adv_params_cp.chan_map = 0x07; // All three channels in use
 
-    struct hci_request rq = {};
-    rq.ogf = OGF_LE_CTL;
-    rq.ocf = OCF_LE_SET_ADVERTISING_PARAMETERS;
-    rq.cparam = &adv_params_cp;
-    rq.clen = LE_SET_ADVERTISING_PARAMETERS_CP_SIZE;
-    do_req(rq);
+    do_req(OCF_LE_SET_ADVERTISING_PARAMETERS, &adv_params_cp, LE_SET_ADVERTISING_PARAMETERS_CP_SIZE);
 
-    /* TODO: Do we need to explicity do a random address msg here? See V4E, 7.8.52 */
+    /* Set random address (v4 sec E 7.8.52) */
+    /* TODO: actual random address, not just placeholder */
     le_set_random_address_cp randaddr_cp = { 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
-    rq.ogf = OGF_LE_CTL;
-    rq.ocf = OCF_LE_SET_RANDOM_ADDRESS;
-    rq.cparam = &randaddr_cp;
-    rq.clen = LE_SET_RANDOM_ADDRESS_CP_SIZE;
-    do_req(rq);
+    do_req(OCF_LE_SET_RANDOM_ADDRESS, &randaddr_cp, LE_SET_RANDOM_ADDRESS_CP_SIZE);
 
     //
     // Enable advertising
-    // NB: It's stated that enabling already-enabled advertising can cause the
-    // random address to change. Even if we can confirm this behavior, we should
-    // find an explicit method of doing so in case the behavior changes.
+    // (If advertising is already enabled this will still force the random address
+    // to update)
     //
     le_set_advertise_enable_cp advertise_cp = {};
     advertise_cp.enable = 0x01;
-
-    rq = {};
-    rq.ogf = OGF_LE_CTL;
-    rq.ocf = OCF_LE_SET_ADVERTISE_ENABLE;
-    rq.cparam = &advertise_cp;
-    rq.clen = LE_SET_ADVERTISE_ENABLE_CP_SIZE;
-    do_req(rq);
+    do_req(OCF_LE_SET_ADVERTISE_ENABLE, &advertise_cp, LE_SET_ADVERTISE_ENABLE_CP_SIZE);
 
     //
     // Set advertising data
     //
     le_set_advertising_data_cp adv_data_cp = {};
     adv_data_cp.length = build_ct_packet(adv_data_cp.data,rpi);
-
-    rq = {};
-    rq.ogf = OGF_LE_CTL;
-    rq.ocf = OCF_LE_SET_ADVERTISING_DATA;
-    rq.cparam = &adv_data_cp;
-    rq.clen = LE_SET_ADVERTISING_DATA_CP_SIZE;
-    do_req(rq);
+    do_req(OCF_LE_SET_ADVERTISING_DATA, &adv_data_cp, LE_SET_ADVERTISING_DATA_CP_SIZE);
 }
 
 void CT_Beacon::stop_advertising() {
@@ -131,11 +115,7 @@ void CT_Beacon::stop_advertising() {
     le_set_advertise_enable_cp advertise_cp = {};
 
     struct hci_request rq = {};
-    rq.ogf = OGF_LE_CTL;
-    rq.ocf = OCF_LE_SET_ADVERTISE_ENABLE;
-    rq.cparam = &advertise_cp;
-    rq.clen = LE_SET_ADVERTISE_ENABLE_CP_SIZE;
-    do_req(rq);
+    do_req(OCF_LE_SET_ADVERTISE_ENABLE, &advertise_cp, LE_SET_ADVERTISE_ENABLE_CP_SIZE);
 }
 
 void CT_Beacon::start_listening() {
