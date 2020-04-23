@@ -89,6 +89,12 @@ void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi) {
     do_req(rq);
 
     /* TODO: Do we need to explicity do a random address msg here? See V4E, 7.8.52 */
+    le_set_random_address_cp randaddr_cp = { 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+    rq.ogf = OGF_LE_CTL;
+    rq.ocf = OCF_LE_SET_RANDOM_ADDRESS;
+    rq.cparam = &randaddr_cp;
+    rq.clen = LE_SET_RANDOM_ADDRESS_CP_SIZE;
+    do_req(rq);
 
     //
     // Enable advertising
