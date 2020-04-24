@@ -21,6 +21,25 @@ const uint8_t SERVICE_DATA16_TYPE = 0x16;
 const uint8_t CT_FLAGS = 0x1A;
 const uint16_t CT_SERVICE_UUID16 = 0xFD6F;
 
+typedef struct {
+    // flags section
+    uint8_t flags_len;
+    uint8_t flags_type;
+    uint8_t flags_data;
+    // uuid section
+    uint8_t uuid_len;
+    uint8_t uuid_type;
+    uint16_t uuid_uuid;
+    // data section
+    uint8_t data_len;
+    uint8_t data_type;
+    uint16_t data_uuid;
+    uint8_t data_rpi[16];
+    uint8_t data_version;
+    uint8_t data_txpower;
+    uint8_t data_reserved[2];
+} __attribute__ ((packed)) EN_packet;
+
 uint8_t build_ct_packet(uint8_t* packet_data, const std::vector<uint8_t>& rpi) {
     // Flags section
     packet_data[0] = 0x02; // section length
