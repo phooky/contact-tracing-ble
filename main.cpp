@@ -9,6 +9,7 @@ int main() {
     auto [ day, time ] = getDayAndTimeInterval();
     auto dtk = tk.daily_tracing_key(day);
     beacon.start_advertising(make_rpi(dtk, time));
+    beacon.start_listening();
     while (true) {
         auto [ cday, ctime ] = getDayAndTimeInterval();
         if (cday != day) dtk = tk.daily_tracing_key(cday);
@@ -17,8 +18,9 @@ int main() {
             day = cday;
             time = ctime;
         }
-        //beacon.log_to_stream(std::cout, 10000);
+        beacon.log_to_stream(std::cout, 10000);
     }
-
+    beacon.stop_advertising();
+    beacon.stop_listening();
     return 0;
 }
