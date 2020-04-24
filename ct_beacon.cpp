@@ -140,8 +140,10 @@ void CT_Beacon::stop_advertising() {
 
 void CT_Beacon::start_listening() {
     // disable scanning
-	if (hci_le_set_scan_enable(dev, 0x00, 0x00, 1000) < 0) 
-        throw std::runtime_error("Could not disable LE scan.");
+    stop_listening();
+	if (hci_le_set_scan_enable(dev, 0x00, 0x01, 1000) < 0) {
+        //throw std::runtime_error("Could not disable LE scan.");
+    }
 
     // set filter
     struct hci_filter filter;
@@ -162,13 +164,15 @@ void CT_Beacon::start_listening() {
             0x01, 0x00, 1000) < 0) 
         throw std::runtime_error("Could not set LE scan parameters.");
     // enable scanning with duplicate filtering enabled
-	if (hci_le_set_scan_enable(dev, 0x01, 0x01, 1000) < 0) 
-        throw std::runtime_error("Could not enable LE scan.");
+    le_set_scan_enable_cp scan_cp = {};
+    scan_cp.enable = 0x01;
+    scan_cp.filter_dup = 0x01;
+    do_req(OCF_LE_SET_SCAN_ENABLE, &scan_cp, LE_SET_SCAN_ENABLE_CP_SIZE);
 }
 
 void CT_Beacon::stop_listening() {
-	if (hci_le_set_scan_enable(dev, 0x00, 0x00, 1000) < 0) 
-        throw std::runtime_error("Could not enable LE scan.");
+    le_set_scan_enable_cp scan_cp = {};
+    do_req(OCF_LE_SET_SCAN_ENABLE, &scan_cp, LE_SET_SCAN_ENABLE_CP_SIZE);
 }
 
 
