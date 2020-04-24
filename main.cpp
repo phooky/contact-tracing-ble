@@ -12,9 +12,9 @@ static void on_signal(int s) {
 
 int main() {
     struct sigaction sig_action = {};
-	sig_action.sa_flags = SA_NOCLDSTOP;
-	sig_action.sa_handler = on_signal;
-	sigaction(SIGINT, &sig_action, NULL);
+    sig_action.sa_flags = SA_NOCLDSTOP;
+    sig_action.sa_handler = on_signal;
+    sigaction(SIGINT, &sig_action, NULL);
 
     TracingKey tk("test.key");
     CT_Beacon beacon;

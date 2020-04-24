@@ -10,6 +10,7 @@
 #include <sys/random.h>
 
 #include "ct_beacon.h"
+#include <cerrno>
 
 // Hi. Guess who learned a lot about Bluetooth Low Energy advertising today?
 
@@ -183,7 +184,9 @@ void CT_Beacon::stop_listening() {
 int CT_Beacon::log_to_stream(std::ostream& out, int timeout_ms) {
     struct pollfd fds = { dev, POLLIN, 0 };
     int rv = poll(&fds, 1, timeout_ms); 
-    if (rv < 0) throw new std::runtime_error("Error during poll.");
+    if (rv < 0) {
+        if (errno != EINTR) throw new std::runtime_error("Error during poll.");
+    }
     if (rv > 0) {
         uint8_t buf[HCI_MAX_EVENT_SIZE];
         ssize_t len = read(dev, buf, HCI_MAX_EVENT_SIZE);
