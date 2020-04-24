@@ -21,6 +21,9 @@ const uint8_t SERVICE_DATA16_TYPE = 0x16;
 const uint8_t CT_FLAGS = 0x1A;
 const uint16_t CT_SERVICE_UUID16 = 0xFD6F;
 
+const uint8_t EN_MAJOR_VERSION = 0x01;
+const uint8_t EN_MINOR_VERSION = 0x00;
+const int8_t TX_POWER_DEFAULT = 0x10;
 typedef struct {
     // flags section
     uint8_t flags_len;
@@ -36,25 +39,29 @@ typedef struct {
     uint16_t data_uuid;
     uint8_t data_rpi[16];
     uint8_t data_version;
-    uint8_t data_txpower;
+    int8_t data_txpower;
     uint8_t data_reserved[2];
 } __attribute__ ((packed)) EN_packet;
 
 uint8_t build_ct_packet(uint8_t* packet_data, const std::vector<uint8_t>& rpi) {
+    EN_packet* p = (EN_packet*)packet_data;
     // Flags section
-    packet_data[0] = 0x02; // section length
-    packet_data[1] = FLAGS_TYPE;
-    packet_data[2] = CT_FLAGS;
+    p->flags_len = 0x02;
+    p->flags_type = FLAGS_TYPE;
+    p->flags_data = CT_FLAGS;
     // UUID16 section
-    packet_data[3] = 0x03; // section length
-    packet_data[4] = SERVICE_UUID16_TYPE;
-    *(uint16_t*)(packet_data+5) = htobs(CT_SERVICE_UUID16);
+    p->uuid_len = 0x03;
+    p->uuid_type = SERVICE_UUID16_TYPE;
+    p->uuid_uuid = htobs(CT_SERVICE_UUID16);
     // Data section
-    packet_data[7] = 0x13;
-    packet_data[8] = SERVICE_DATA16_TYPE;
-    *(uint16_t*)(packet_data+9) = htobs(CT_SERVICE_UUID16);
-    for (auto i = 0; i < 16; i++) packet_data[11+i] = rpi[i];
-    return 27;
+    p->data_len = 0x13;
+    p->data_type = SERVICE_DATA16_TYPE;
+    p->data_uuid = htobs(CT_SERVICE_UUID16);
+    for (auto i = 0; i < 16; i++) p->data_rpi[i] = rpi[i];
+    p->data_version = (EN_MAJOR_VERSION << 6) | (EN_MINOR_VERSION << 4);
+    p->data_txpower = TX_POWER_DEFAULT;
+    p->data_reserved[0] = p->data_reserved[1] = 0;
+    return sizeof(EN_packet);
 }
 
 // recommended advertising interval -- ~200-270 ms
