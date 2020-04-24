@@ -141,7 +141,7 @@ void CT_Beacon::stop_advertising() {
 void CT_Beacon::start_listening() {
     // disable scanning
 	if (hci_le_set_scan_enable(dev, 0x00, 0x00, 1000) < 0) 
-        throw std::runtime_error("Could not enable LE scan.");
+        throw std::runtime_error("Could not disable LE scan.");
 
     // set filter
     struct hci_filter filter;
