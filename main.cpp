@@ -1,6 +1,8 @@
 #include "ct_beacon.h"
 #include "ct_crypto.h"
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <atomic>
 #include <signal.h>
 #include <getopt.h>
@@ -17,6 +19,33 @@ void usage(char* const path, std::ostream& output) {
     output << "  -lLOGBASE    base of logfile path" << std::endl;
 }
 
+class LogBuilder {
+    const std::string base;
+    std::ofstream out;
+    const bool is_cout;
+    public:
+    LogBuilder(const std::string& logbase, const uint32_t dayNumber) : base(logbase), is_cout(logbase == "-") {
+        update(dayNumber);
+    }
+    ~LogBuilder() {
+        if (out.is_open()) out.close();
+    }
+
+    void update(const uint32_t dayNumber) {
+        if (!is_cout) {
+            if (out.is_open()) out.close();
+            std::stringstream ss(base);
+            ss << dayNumber << ".log";
+            out.open(ss.str(), std::ofstream::out | std::ofstream::binary | std::ofstream::app);
+        }
+    }
+    std::ostream& ostream() {
+        if (is_cout) return std::cout;
+        return out;
+    }
+
+};
+
 int main(int argc, char* const argv[]) {
     bool verbose = false;
     std::string logbase = "ct_log-";
@@ -30,7 +59,6 @@ int main(int argc, char* const argv[]) {
             return -1;
         }
     }
-
     struct sigaction sig_action = {};
     sig_action.sa_flags = SA_NOCLDSTOP;
     sig_action.sa_handler = on_signal;
@@ -45,15 +73,19 @@ int main(int argc, char* const argv[]) {
     beacon.start_advertising(make_rpi(dtk, time));
     std::cerr << "Begin listening." << std::endl;
     beacon.start_listening();
+    LogBuilder log(logbase,day);
     while (no_sig) {
         auto [ cday, ctime ] = getDayAndTimeInterval();
-        if (cday != day) dtk = tk.daily_tracing_key(cday);
+        if (cday != day) {
+            dtk = tk.daily_tracing_key(cday);
+            log.update(day);
+        }
         if (cday != day || ctime != ctime) { 
             beacon.start_advertising(make_rpi(dtk, ctime));
             day = cday;
             time = ctime;
         }
-        beacon.log_to_stream(std::cout, 10000);
+        beacon.log_to_stream(log.ostream(), 10000);
     }
     std::cerr << "End listening." << std::endl;
     beacon.stop_listening();
