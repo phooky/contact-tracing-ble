@@ -7,6 +7,8 @@
 #include <sstream>
 #include <unistd.h>
 
+#include <sys/random.h>
+
 #include "ct_beacon.h"
 
 // Hi. Guess who learned a lot about Bluetooth Low Energy advertising today?
@@ -72,8 +74,31 @@ void CT_Beacon::do_req(uint16_t ocf, void* cparam, int clen) {
 
 void CT_Beacon::reset() {}
 
+bool bdaddr_invalid(const bdaddr_t& a) {
+    bool zeros = true;
+    bool ones = true;
+    for (auto i = 0; i < 6; i++) {
+        zeros = zeros && (a.b[i] == 0);
+        ones = ones && (a.b[i] == (i==5)?0x3f:0xff);
+    }
+    return zeros || ones;
+}
 
 void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi) {
+    //
+    // Set random address (v4 sec E 7.8.52) */
+    //
+#ifdef DEBUG_ADDR
+    le_set_random_address_cp randaddr_cp = { 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+#else
+    le_set_random_address_cp randaddr_cp;
+    getrandom( &randaddr_cp, 6, 0 );
+    randaddr_cp.bdaddr.b[5] &= 0x3f; // non-resolvable private address
+    // ensure that the address is not all 1s or 0s!
+    if (bdaddr_invalid(randaddr_cp.bdaddr) ) randaddr_cp.bdaddr.b[0] = 0x55;
+#endif
+    do_req(OCF_LE_SET_RANDOM_ADDRESS, &randaddr_cp, LE_SET_RANDOM_ADDRESS_CP_SIZE);
+
     //
     // Set advertising parameters
     //
@@ -87,11 +112,6 @@ void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi) {
     adv_params_cp.chan_map = 0x07; // All three channels in use
 
     do_req(OCF_LE_SET_ADVERTISING_PARAMETERS, &adv_params_cp, LE_SET_ADVERTISING_PARAMETERS_CP_SIZE);
-
-    /* Set random address (v4 sec E 7.8.52) */
-    /* TODO: actual random address, not just placeholder */
-    le_set_random_address_cp randaddr_cp = { 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
-    do_req(OCF_LE_SET_RANDOM_ADDRESS, &randaddr_cp, LE_SET_RANDOM_ADDRESS_CP_SIZE);
 
     //
     // Enable advertising
