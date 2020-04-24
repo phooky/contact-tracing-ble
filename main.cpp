@@ -35,9 +35,9 @@ int main() {
         }
         beacon.log_to_stream(std::cout, 10000);
     }
-    std::cerr << "End advertising." << std::endl;
-    beacon.stop_advertising();
     std::cerr << "End listening." << std::endl;
     beacon.stop_listening();
+    std::cerr << "End advertising." << std::endl;
+    beacon.stop_advertising();
     return 0;
 }
