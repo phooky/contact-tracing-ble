@@ -214,7 +214,7 @@ int CT_Beacon::log_to_stream(std::ostream& out, int timeout_ms) {
                     std::cerr << "Found RPI!" << std::endl;
                     out.write((const char*)(start+4),0x10);
                 }
-                start += sz;
+                start += sz + 1;
             }
         }
         return 1;
