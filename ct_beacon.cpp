@@ -211,8 +211,13 @@ int CT_Beacon::log_to_stream(std::ostream& out, int timeout_ms) {
                     if (sz < 0x13) return 0;
                     // check for correct UUID
                     if (*(uint16_t*)(start+2) != htobs(CT_SERVICE_UUID16)) return 0;
-                    std::cerr << "Found RPI!" << std::endl;
+                    auto rpi = start+4;
+                    auto t = time(NULL);
+                    out.write((const char*)&t, sizeof(time_t));
                     out.write((const char*)(start+4),0x10);
+                    std::cerr << "At epoch " << t << " got RPI " << std::hex << rpi[0];
+                    for (auto i = 1; i < 0x10; i++) std::cerr << ":" << rpi[i];
+                    std::cerr << std::endl;
                 }
                 start += sz + 1;
             }
