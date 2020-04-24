@@ -3,6 +3,7 @@
 #include <iostream>
 #include <atomic>
 #include <signal.h>
+#include <getopt.h>
 
 std::atomic<bool> no_sig = true;
 
@@ -10,7 +11,26 @@ static void on_signal(int s) {
     no_sig = false;
 }
 
-int main() {
+void usage(char* const path, std::ostream& output) {
+    output << "Usage: " << path << " [OPTION]" << std::endl;
+    output << "  -v           verbose mode" << std::endl;
+    output << "  -lLOGBASE    base of logfile path" << std::endl;
+}
+
+int main(int argc, char* const argv[]) {
+    bool verbose = false;
+    std::string logbase = "ct_log-";
+    while (true) {
+        auto opt = getopt(argc,argv,"l:v");
+        if (opt == -1) break;
+        else if (opt == 'v') { verbose = true; }
+        else if (opt == 'l') { logbase = optarg; }
+        else {
+            usage(argv[0],std::cout);
+            return -1;
+        }
+    }
+
     struct sigaction sig_action = {};
     sig_action.sa_flags = SA_NOCLDSTOP;
     sig_action.sa_handler = on_signal;
