@@ -140,7 +140,11 @@ void CT_Beacon::stop_advertising() {
 
 void CT_Beacon::start_listening() {
     // disable scanning
-    stop_listening();
+    try {
+        stop_listening();
+    } catch (std::runtime_error& e) {
+        std::cerr << "Command disallowed on initial scan disable." << std::endl;
+    }
 	if (hci_le_set_scan_enable(dev, 0x00, 0x01, 1000) < 0) {
         //throw std::runtime_error("Could not disable LE scan.");
     }
