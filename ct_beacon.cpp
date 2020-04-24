@@ -194,7 +194,28 @@ int CT_Beacon::log_to_stream(std::ostream& out, int timeout_ms) {
         if (mevt->subevent == 0x02) { // advertising report
             le_advertising_info* ad = (le_advertising_info*)(mevt->data + 1);
             len -= (uint8_t*)ad - buf;
-            out.write((char*)ad->data,len);
+            len = std::min(len - 1, (ssize_t)ad->length);
+            auto start = ad->data;
+            auto end = start + len;
+            while (start <= end) {
+                uint8_t sz = start[0];
+                if (sz < 1) return 0; // malformed
+                if (start + sz > end) return 0; // OOB
+                uint8_t type = start[1];
+                if (type == SERVICE_UUID16_TYPE) {
+                    if (sz < 3) return 0;
+                    // check for correct service UUID
+                    if (*(uint16_t*)(start+2) != htobs(CT_SERVICE_UUID16)) return 0;
+                    std::cerr << "Correct service UUID" << std::endl;
+                } else if (type == SERVICE_DATA16_TYPE) {
+                    if (sz < 0x13) return 0;
+                    // check for correct UUID
+                    if (*(uint16_t*)(start+2) != htobs(CT_SERVICE_UUID16)) return 0;
+                    std::cerr << "Found RPI!" << std::endl;
+                    out.write((const char*)(start+4),0x10);
+                }
+                start += sz;
+            }
         }
         return 1;
     }
