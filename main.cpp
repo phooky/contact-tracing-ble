@@ -80,6 +80,7 @@ int main(int argc, char* const argv[]) {
         }
         auto cur_interval = getENIntervalNumber();
         if (cur_interval != interval) {
+            beacon.stop_advertising(); // advertising must halt before updating addr/params
             beacon.start_advertising(tek.make_rpi(interval));
             interval = cur_interval;
         }
