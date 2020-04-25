@@ -2,15 +2,12 @@
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 #include <poll.h>
-
 #include <iostream>
 #include <sstream>
 #include <unistd.h>
-
-#include <sys/random.h>
-
-#include "ct_beacon.h"
 #include <cerrno>
+#include <sys/random.h>
+#include "bt.h"
 
 // Hi. Guess who learned a lot about Bluetooth Low Energy advertising today?
 

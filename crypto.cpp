@@ -6,9 +6,7 @@
 #include <sstream>
 #include <endian.h>
 #include <vector>
-#include "ct_crypto.h"
-
-
+#include "crypto.h"
 
 uint32_t getENIntervalNumber() {
     time_t t = time(NULL);

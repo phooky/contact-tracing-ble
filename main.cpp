@@ -1,5 +1,5 @@
-#include "ct_beacon.h"
-#include "ct_crypto.h"
+#include "bt.h"
+#include "crypto.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -20,7 +20,7 @@ void usage(char* const path, std::ostream& output) {
     output << "  -d           debug logs (human-readable, includes addr)" << std::endl;
 }
 
-class Logger {
+class LogBuilder {
     const std::string base;
     std::ofstream out;
     bool debug;
