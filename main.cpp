@@ -24,18 +24,18 @@ class LogBuilder {
     std::ofstream out;
     const bool is_cout;
     public:
-    LogBuilder(const std::string& logbase, const uint32_t dayNumber) : base(logbase), is_cout(logbase == "-") {
-        update(dayNumber);
+    LogBuilder(const std::string& logbase, const uint32_t interval) : base(logbase), is_cout(logbase == "-") {
+        update(interval);
     }
     ~LogBuilder() {
         if (out.is_open()) out.close();
     }
 
-    void update(const uint32_t dayNumber) {
+    void update(const uint32_t interval) {
         if (!is_cout) {
             if (out.is_open()) out.close();
             std::stringstream ss(base);
-            ss << dayNumber << ".log";
+            ss << interval << ".log";
             out.open(ss.str(), std::ofstream::out | std::ofstream::binary | std::ofstream::app);
         }
     }
@@ -64,26 +64,24 @@ int main(int argc, char* const argv[]) {
     sig_action.sa_handler = on_signal;
     sigaction(SIGINT, &sig_action, NULL);
 
-    TracingKey tk("test.key");
+    TemporaryExposureKey tek;
     CT_Beacon beacon;
     beacon.reset();
-    auto [ day, time ] = getDayAndTimeInterval();
-    auto dtk = tk.daily_tracing_key(day);
     std::cerr << "Begin advertising." << std::endl;
-    beacon.start_advertising(make_rpi(dtk, time));
+    auto interval = getENIntervalNumber();
+    beacon.start_advertising(tek.make_rpi(interval));
     std::cerr << "Begin listening." << std::endl;
     beacon.start_listening();
-    LogBuilder log(logbase,day);
+    LogBuilder log(logbase,tek.get_valid_from());
     while (no_sig) {
-        auto [ cday, ctime ] = getDayAndTimeInterval();
-        if (cday != day) {
-            dtk = tk.daily_tracing_key(cday);
-            log.update(day);
+        if (!tek.is_still_valid()) {
+            tek = TemporaryExposureKey();
+            log.update(tek.get_valid_from());
         }
-        if (cday != day || ctime != ctime) { 
-            beacon.start_advertising(make_rpi(dtk, ctime));
-            day = cday;
-            time = ctime;
+        auto cur_interval = getENIntervalNumber();
+        if (cur_interval != interval) {
+            beacon.start_advertising(tek.make_rpi(interval));
+            interval = cur_interval;
         }
         beacon.log_to_stream(log.ostream(), 10000);
     }

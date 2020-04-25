@@ -3,6 +3,7 @@
 #include <gcrypt.h>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <endian.h>
 #include <vector>
 #include "ct_crypto.h"
@@ -64,15 +65,27 @@ public:
     return expand_mac.read(buf,16);
 }
 
-TemporaryExposureKey::TemporaryExposureKey() {
-    gcry_randomize(key, 16, GCRY_VERY_STRONG_RANDOM);
+TemporaryExposureKey::TemporaryExposureKey(const::std::string& prefix) {
+    // Validation period
+    uint32_t cur_interval = getENIntervalNumber();
+    valid_from = (cur_interval / EKRollingPeriod) * EKRollingPeriod;
+    // Load or generate key
+    std::stringstream ss(prefix);
+    ss << valid_from << ".tek";
+    std::ifstream inf(ss.str());
+    if (inf) {
+        inf.read((char*)key, 16);
+        inf.close();
+    } else {
+        gcry_randomize(key, 16, GCRY_VERY_STRONG_RANDOM);
+        std::ofstream outf(ss.str(),std::ofstream::out|std::ofstream::binary);
+        outf.write((const char*)key, 16);
+        outf.close();
+    }
     // Generate RPI key
     HKDF(key, 16, NULL, 0, (const uint8_t*)"EN-RPIK", 7, rpi_key, 16);
     // Generate AEM key
     HKDF(key, 16, NULL, 0, (const uint8_t*)"CT-AEMK", 7, aem_key, 16);
-    // Validation period
-    uint32_t cur_interval = getENIntervalNumber();
-    valid_from = (cur_interval / EKRollingPeriod) * EKRollingPeriod;
 }
 
 bool TemporaryExposureKey::is_still_valid() {
