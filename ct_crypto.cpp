@@ -7,20 +7,20 @@
 #include <vector>
 #include "ct_crypto.h"
 
-std::tuple<uint32_t,uint8_t> getDayAndTimeInterval() {
+
+
+uint32_t getENIntervalNumber() {
     time_t t = time(NULL);
-    uint32_t dayNumber = t / (60L * 60L * 24L);
-    uint32_t secsIntoDay = t - (dayNumber * 60L * 60L * 24L);
-    uint8_t timeIntervalNumber = secsIntoDay / (60*10);
-    return std::make_tuple(dayNumber, timeIntervalNumber);
+    uint32_t intervalNumber = t / (60*10);
+    return intervalNumber;
 }
 
 class HMAC {
     gcry_mac_hd_t hd;
 public:
-    HMAC(const std::vector<uint8_t>& key) {
+    HMAC(const uint8_t* key, size_t keylen) {
         gcry_mac_open(&hd, GCRY_MAC_HMAC_SHA256, 0, NULL);
-        gcry_mac_setkey(hd, key.data(), key.size());
+        gcry_mac_setkey(hd, key, keylen);
     }
     ~HMAC() {
         gcry_mac_close(hd);
@@ -38,61 +38,68 @@ public:
         gcry_mac_write(hd, d, len);
     }
 
-    std::vector<uint8_t> read(size_t sz) {
-        std::vector<uint8_t> v(sz);
-        gcry_mac_read(hd, v.data(), &sz);
-        if (sz != v.size()) throw std::runtime_error("Unexpected SHA-256 HMAC size");
-        return v;
+    void read(uint8_t* buf, size_t sz) {
+        size_t rsz = sz;
+        gcry_mac_read(hd, buf, &rsz);
+        if (sz != rsz) throw std::runtime_error("Unexpected SHA-256 HMAC size");
     }
 };
 
-TracingKey::TracingKey(const std::string& path) : std::vector<uint8_t>(KEYLEN) {
-    std::ifstream f(path);
-    if (f) { 
-        f.read((char*)data(), size());
-        f.close();
-    } else {
-        gcry_randomize(data(), size(), GCRY_VERY_STRONG_RANDOM);
-        // store to path
-        std::ofstream f(path);
-        f.write((char*)data(), size());
-        f.close();
-    }
-}
-
-std::vector<uint8_t> TracingKey::daily_tracing_key(uint32_t dayNumber) {
-    // HKDF (tk , NULL , ( UTF8("CT-DTK") || Di ),16)
-
+ void HKDF(const uint8_t* key, size_t keylen,
+        const uint8_t* salt, size_t saltlen,
+        const uint8_t* info, size_t infolen,
+        uint8_t* buf, size_t buflen) {
     // Step 1: extract
-    HMAC extract_mac(std::vector<uint8_t>(32,0));
-    extract_mac.write(*this);
-    auto prk = extract_mac.read(32);
+    HMAC extract_mac(salt,saltlen);
+    extract_mac.write(key,keylen);
+    uint8_t prk[32];
+    extract_mac.read(prk,32);
 
-    // Step 2: expand. We only need 16 octets, so this is trivial.
-    HMAC expand_mac(prk);
-    expand_mac.write(std::string("CT-DTK"));
-    uint32_t dn_le = htole32(dayNumber);
-    expand_mac.write((uint8_t*)&dn_le, 4);
+    // Step 2: expand. We only need 16 octets, so this is an
+    // incomplete implementation.
+    HMAC expand_mac(prk,32);
+    expand_mac.write(info,infolen);
     uint8_t end_octet = 0x01;
     expand_mac.write(&end_octet, 1);
-    return expand_mac.read(16);
+    return expand_mac.read(buf,16);
 }
 
-std::vector<uint8_t> make_rpi(const std::vector<uint8_t>& dtk, uint8_t timeIntervalNumber) {
-    HMAC mac(dtk);
-    mac.write(std::string("CT-RPI"));
-    mac.write(&timeIntervalNumber,1);
-    return mac.read(16);
+TemporaryExposureKey::TemporaryExposureKey() {
+    gcry_randomize(key, 16, GCRY_VERY_STRONG_RANDOM);
+    // Generate RPI key
+    HKDF(key, 16, NULL, 0, (const uint8_t*)"EN-RPIK", 7, rpi_key, 16);
+    // Generate AEM key
+    HKDF(key, 16, NULL, 0, (const uint8_t*)"CT-AEMK", 7, aem_key, 16);
+    // Validation period
+    uint32_t cur_interval = getENIntervalNumber();
+    valid_from = (cur_interval / EKRollingPeriod) * EKRollingPeriod;
 }
 
-
-int main_test_crypto() {
-    TracingKey tk("test.key");
-    auto [ day, time ] = getDayAndTimeInterval();
-    auto dtk = tk.daily_tracing_key(day);
-    auto rpi = make_rpi(dtk, time);
-    for (auto i = 0;i < 16; i++) std::cout << rpi[i];
-    return 0;
+bool TemporaryExposureKey::is_still_valid() {
+    uint32_t cur_interval = getENIntervalNumber();
+    return cur_interval < (valid_from + EKRollingPeriod);
 }
-    
+
+std::vector<uint8_t> TemporaryExposureKey::make_rpi(uint32_t intervalNumber) {
+    uint8_t inblock[16] = { 'E','N','-','R','P','I' };
+    *(uint32_t*)(inblock+12) = htole32(intervalNumber);
+    gcry_cipher_hd_t handle;
+    gcry_cipher_open(&handle, GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_ECB, 0);
+    gcry_cipher_setkey(handle,rpi_key,16);
+    gcry_cipher_encrypt(handle, inblock, 16, NULL, 0);
+    gcry_cipher_close(handle);
+    return std::vector<uint8_t>(inblock, inblock+16);
+}
+
+std::vector<uint8_t> TemporaryExposureKey::encrypt_aem(const std::vector<uint8_t>& rpi, const std::vector<uint8_t>& metadata) {
+    gcry_cipher_hd_t handle;
+    gcry_cipher_open(&handle, GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_CTR, 0);
+    gcry_cipher_setkey(handle,aem_key,16);
+    gcry_cipher_setiv(handle,rpi.data(),rpi.size());
+    std::vector<uint8_t> out(metadata.size());
+    gcry_cipher_encrypt(handle, out.data(), out.size(), metadata.data(), metadata.size());
+    gcry_cipher_close(handle);
+    return out;
+}
+
 
