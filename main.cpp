@@ -17,14 +17,17 @@ void usage(char* const path, std::ostream& output) {
     output << "Usage: " << path << " [OPTION]" << std::endl;
     output << "  -v           verbose mode" << std::endl;
     output << "  -lLOGBASE    base of logfile path" << std::endl;
+    output << "  -d           debug logs (human-readable, includes addr)" << std::endl;
 }
 
-class LogBuilder {
+class Logger {
     const std::string base;
     std::ofstream out;
+    bool debug;
     const bool is_cout;
     public:
-    LogBuilder(const std::string& logbase, const uint32_t interval) : base(logbase), is_cout(logbase == "-") {
+    LogBuilder(const std::string& logbase, const uint32_t interval, bool debug = false) : 
+        base(logbase), debug(debug), is_cout(logbase == "-") {
         update(interval);
     }
     ~LogBuilder() {
@@ -35,7 +38,7 @@ class LogBuilder {
         if (!is_cout) {
             if (out.is_open()) out.close();
             std::stringstream ss(base);
-            ss << interval << ".log";
+            ss << interval << debug?".dbg_log" : ".log";
             out.open(ss.str(), std::ofstream::out | std::ofstream::binary | std::ofstream::app);
         }
     }
