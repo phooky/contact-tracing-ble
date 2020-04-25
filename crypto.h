@@ -1,3 +1,5 @@
+#pragma once
+
 #include <tuple>
 #include <gcrypt.h>
 #include <vector>

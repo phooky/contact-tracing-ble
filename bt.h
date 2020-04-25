@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
