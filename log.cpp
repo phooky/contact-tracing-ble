@@ -26,7 +26,7 @@ void LogBuilder::log_report(uint8_t* report_data, size_t sz) {
     le_advertising_info* ad = (le_advertising_info*)report_data;
     EN_packet* p = (EN_packet*)ad->data;
     if (debug) {
-        o << std::dec << time(NULL) << " size " << (int)sz << " from ";
+        o << std::dec << time(NULL) << " size " << (int)ad->length << " from ";
         writehex(o, ad->bdaddr.b, 6);
         o << " (type " << std::hex << (int)ad->bdaddr_type << ")" << std::endl;
         o << "    got RPI ";
