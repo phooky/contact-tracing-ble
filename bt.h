@@ -5,6 +5,7 @@
 #include <bluetooth/hci.h>
 #include <string>
 #include <vector>
+#include "log.h"
 
 class CT_Beacon {
     int dev;
@@ -20,6 +21,6 @@ public:
     void start_listening();
     void stop_listening();
 
-    int log_to_stream(std::ostream& out, int timeout_ms);
+    int log(LogBuilder& log, int timeout_ms);
 };
 

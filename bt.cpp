@@ -7,7 +7,9 @@
 #include <unistd.h>
 #include <cerrno>
 #include <sys/random.h>
+#include <cstring>
 #include "bt.h"
+#include "adv_packet.h"
 
 // Hi. Guess who learned a lot about Bluetooth Low Energy advertising today?
 
@@ -21,43 +23,17 @@ const uint16_t CT_SERVICE_UUID16 = 0xFD6F;
 const uint8_t EN_MAJOR_VERSION = 0x01;
 const uint8_t EN_MINOR_VERSION = 0x00;
 const int8_t TX_POWER_DEFAULT = 0x10;
-typedef struct {
-    // flags section
-    uint8_t flags_len;
-    uint8_t flags_type;
-    uint8_t flags_data;
-    // uuid section
-    uint8_t uuid_len;
-    uint8_t uuid_type;
-    uint16_t uuid_uuid;
-    // data section
-    uint8_t data_len;
-    uint8_t data_type;
-    uint16_t data_uuid;
-    uint8_t data_rpi[16];
-    uint8_t data_version;
-    int8_t data_txpower;
-    uint8_t data_reserved[2];
-} __attribute__ ((packed)) EN_packet;
+
+const static EN_packet prototype = {
+    0x02, FLAGS_TYPE, CT_FLAGS,
+    0x03, SERVICE_UUID16_TYPE, htobs(CT_SERVICE_UUID16),
+    0x17, SERVICE_DATA16_TYPE, htobs(CT_SERVICE_UUID16),
+};
 
 uint8_t build_ct_packet(uint8_t* packet_data, const std::vector<uint8_t>& rpi) {
     EN_packet* p = (EN_packet*)packet_data;
-    // Flags section
-    p->flags_len = 0x02;
-    p->flags_type = FLAGS_TYPE;
-    p->flags_data = CT_FLAGS;
-    // UUID16 section
-    p->uuid_len = 0x03;
-    p->uuid_type = SERVICE_UUID16_TYPE;
-    p->uuid_uuid = htobs(CT_SERVICE_UUID16);
-    // Data section
-    p->data_len = 0x13;
-    p->data_type = SERVICE_DATA16_TYPE;
-    p->data_uuid = htobs(CT_SERVICE_UUID16);
+    *p = prototype;
     for (auto i = 0; i < 16; i++) p->data_rpi[i] = rpi[i];
-    p->data_version = (EN_MAJOR_VERSION << 6) | (EN_MINOR_VERSION << 4);
-    p->data_txpower = TX_POWER_DEFAULT;
-    p->data_reserved[0] = p->data_reserved[1] = 0;
     return sizeof(EN_packet);
 }
 
@@ -204,7 +180,7 @@ void CT_Beacon::stop_listening() {
 }
 
 
-int CT_Beacon::log_to_stream(std::ostream& out, int timeout_ms) {
+int CT_Beacon::log(LogBuilder& log, int timeout_ms) {
     struct pollfd fds = { dev, POLLIN, 0 };
     int rv = poll(&fds, 1, timeout_ms); 
     if (rv < 0) {
@@ -216,36 +192,14 @@ int CT_Beacon::log_to_stream(std::ostream& out, int timeout_ms) {
         evt_le_meta_event* mevt = (evt_le_meta_event*)(buf + 1 + HCI_EVENT_HDR_SIZE);
         if (mevt->subevent == 0x02) { // advertising report
             le_advertising_info* ad = (le_advertising_info*)(mevt->data + 1);
-            len -= (uint8_t*)ad - buf;
-            len = std::min(len - 1, (ssize_t)ad->length);
-            auto start = ad->data;
-            auto end = start + len;
-            while (start <= end) {
-                uint8_t sz = start[0];
-                if (sz < 1) return 0; // malformed
-                if (start + sz > end) return 0; // OOB
-                uint8_t type = start[1];
-                if (type == SERVICE_UUID16_TYPE) {
-                    if (sz < 3) return 0;
-                    // check for correct service UUID
-                    if (*(uint16_t*)(start+2) != htobs(CT_SERVICE_UUID16)) return 0;
-                    std::cerr << "Correct service UUID" << std::endl;
-                } else if (type == SERVICE_DATA16_TYPE) {
-                    if (sz < 0x13) return 0;
-                    // check for correct UUID
-                    if (*(uint16_t*)(start+2) != htobs(CT_SERVICE_UUID16)) return 0;
-                    auto rpi = start+4;
-                    auto t = time(NULL);
-                    out.write((const char*)&t, sizeof(time_t));
-                    out.write((const char*)(start+4),0x10);
-                    std::cerr << "At epoch " << t << " got RPI " << std::hex << rpi[0];
-                    for (auto i = 1; i < 0x10; i++) std::cerr << ":" << rpi[i];
-                    std::cerr << std::endl;
-                }
-                start += sz + 1;
+            auto data_len = std::min((size_t)(buf-ad->data)+HCI_MAX_EVENT_SIZE, (size_t)ad->length);
+            if (data_len < 27) return 0;
+            EN_packet* p = (EN_packet*)ad->data;
+            if (std::memcmp(p,&prototype,(&(p->data_rpi[0]) - (uint8_t*)p)) == 0) {
+                log.log_report((uint8_t*)ad,data_len);
+                return 1;
             }
         }
-        return 1;
     }
     return 0;
 }

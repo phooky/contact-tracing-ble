@@ -20,35 +20,6 @@ void usage(char* const path, std::ostream& output) {
     output << "  -d           debug logs (human-readable, includes addr)" << std::endl;
 }
 
-class LogBuilder {
-    const std::string base;
-    std::ofstream out;
-    bool debug;
-    const bool is_cout;
-    public:
-    LogBuilder(const std::string& logbase, const uint32_t interval, bool debug = false) : 
-        base(logbase), debug(debug), is_cout(logbase == "-") {
-        update(interval);
-    }
-    ~LogBuilder() {
-        if (out.is_open()) out.close();
-    }
-
-    void update(const uint32_t interval) {
-        if (!is_cout) {
-            if (out.is_open()) out.close();
-            std::stringstream ss(base);
-            ss << interval << debug?".dbg_log" : ".log";
-            out.open(ss.str(), std::ofstream::out | std::ofstream::binary | std::ofstream::app);
-        }
-    }
-    std::ostream& ostream() {
-        if (is_cout) return std::cout;
-        return out;
-    }
-
-};
-
 int main(int argc, char* const argv[]) {
     bool verbose = false;
     std::string logbase = "ct_log-";
@@ -87,7 +58,7 @@ int main(int argc, char* const argv[]) {
             beacon.start_advertising(tek.make_rpi(interval));
             interval = cur_interval;
         }
-        beacon.log_to_stream(log.ostream(), 10000);
+        beacon.log(log, 10000);
     }
     std::cerr << "End listening." << std::endl;
     beacon.stop_listening();
