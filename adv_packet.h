@@ -17,6 +17,4 @@ typedef struct {
     uint16_t data_uuid;
     uint8_t data_rpi[16];
     uint8_t data_aem[4];
-    int8_t data_txpower;
-    uint8_t data_reserved[2];
 } __attribute__ ((packed)) EN_packet;
