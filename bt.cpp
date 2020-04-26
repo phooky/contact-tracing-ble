@@ -2,15 +2,14 @@
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 #include <poll.h>
-
 #include <iostream>
 #include <sstream>
 #include <unistd.h>
-
-#include <sys/random.h>
-
-#include "ct_beacon.h"
 #include <cerrno>
+#include <sys/random.h>
+#include <cstring>
+#include "bt.h"
+#include "adv_packet.h"
 
 // Hi. Guess who learned a lot about Bluetooth Low Energy advertising today?
 
@@ -21,21 +20,24 @@ const uint8_t SERVICE_DATA16_TYPE = 0x16;
 const uint8_t CT_FLAGS = 0x1A;
 const uint16_t CT_SERVICE_UUID16 = 0xFD6F;
 
-uint8_t build_ct_packet(uint8_t* packet_data, const std::vector<uint8_t>& rpi) {
-    // Flags section
-    packet_data[0] = 0x02; // section length
-    packet_data[1] = FLAGS_TYPE;
-    packet_data[2] = CT_FLAGS;
-    // UUID16 section
-    packet_data[3] = 0x03; // section length
-    packet_data[4] = SERVICE_UUID16_TYPE;
-    *(uint16_t*)(packet_data+5) = htobs(CT_SERVICE_UUID16);
-    // Data section
-    packet_data[7] = 0x13;
-    packet_data[8] = SERVICE_DATA16_TYPE;
-    *(uint16_t*)(packet_data+9) = htobs(CT_SERVICE_UUID16);
-    for (auto i = 0; i < 16; i++) packet_data[11+i] = rpi[i];
-    return 27;
+const uint8_t EN_MAJOR_VERSION = 0x01;
+const uint8_t EN_MINOR_VERSION = 0x00;
+const int8_t TX_POWER_DEFAULT = 0x10;
+
+const static EN_packet prototype = {
+    0x02, FLAGS_TYPE, CT_FLAGS,
+    0x03, SERVICE_UUID16_TYPE, htobs(CT_SERVICE_UUID16),
+    0x17, SERVICE_DATA16_TYPE, htobs(CT_SERVICE_UUID16),
+};
+
+uint8_t build_ct_packet(uint8_t* packet_data, 
+        const std::vector<uint8_t>& rpi,
+        const std::vector<uint8_t>& aem) {
+    EN_packet* p = (EN_packet*)packet_data;
+    *p = prototype;
+    for (auto i = 0; i < 16; i++) p->data_rpi[i] = rpi[i];
+    for (auto i = 0; i < 4; i++) p->data_aem[i] = aem[i];
+    return sizeof(EN_packet);
 }
 
 // recommended advertising interval -- ~200-270 ms
@@ -85,7 +87,8 @@ bool bdaddr_invalid(const bdaddr_t& a) {
     return zeros || ones;
 }
 
-void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi) {
+void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi,
+        const std::vector<uint8_t>& aem) {
     //
     // Set random address (v4 sec E 7.8.52) */
     //
@@ -127,7 +130,7 @@ void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi) {
     // Set advertising data
     //
     le_set_advertising_data_cp adv_data_cp = {};
-    adv_data_cp.length = build_ct_packet(adv_data_cp.data,rpi);
+    adv_data_cp.length = build_ct_packet(adv_data_cp.data,rpi,aem);
     do_req(OCF_LE_SET_ADVERTISING_DATA, &adv_data_cp, LE_SET_ADVERTISING_DATA_CP_SIZE);
 }
 
@@ -181,7 +184,7 @@ void CT_Beacon::stop_listening() {
 }
 
 
-int CT_Beacon::log_to_stream(std::ostream& out, int timeout_ms) {
+int CT_Beacon::log(LogBuilder& log, int timeout_ms) {
     struct pollfd fds = { dev, POLLIN, 0 };
     int rv = poll(&fds, 1, timeout_ms); 
     if (rv < 0) {
@@ -193,49 +196,15 @@ int CT_Beacon::log_to_stream(std::ostream& out, int timeout_ms) {
         evt_le_meta_event* mevt = (evt_le_meta_event*)(buf + 1 + HCI_EVENT_HDR_SIZE);
         if (mevt->subevent == 0x02) { // advertising report
             le_advertising_info* ad = (le_advertising_info*)(mevt->data + 1);
-            len -= (uint8_t*)ad - buf;
-            len = std::min(len - 1, (ssize_t)ad->length);
-            auto start = ad->data;
-            auto end = start + len;
-            while (start <= end) {
-                uint8_t sz = start[0];
-                if (sz < 1) return 0; // malformed
-                if (start + sz > end) return 0; // OOB
-                uint8_t type = start[1];
-                if (type == SERVICE_UUID16_TYPE) {
-                    if (sz < 3) return 0;
-                    // check for correct service UUID
-                    if (*(uint16_t*)(start+2) != htobs(CT_SERVICE_UUID16)) return 0;
-                    std::cerr << "Correct service UUID" << std::endl;
-                } else if (type == SERVICE_DATA16_TYPE) {
-                    if (sz < 0x13) return 0;
-                    // check for correct UUID
-                    if (*(uint16_t*)(start+2) != htobs(CT_SERVICE_UUID16)) return 0;
-                    auto rpi = start+4;
-                    auto t = time(NULL);
-                    out.write((const char*)&t, sizeof(time_t));
-                    out.write((const char*)(start+4),0x10);
-                    std::cerr << "At epoch " << t << " got RPI " << std::hex << rpi[0];
-                    for (auto i = 1; i < 0x10; i++) std::cerr << ":" << rpi[i];
-                    std::cerr << std::endl;
-                }
-                start += sz + 1;
+            auto data_len = std::min((size_t)(buf-ad->data)+HCI_MAX_EVENT_SIZE, (size_t)ad->length);
+            if (data_len < 27) return 0;
+            EN_packet* p = (EN_packet*)ad->data;
+            if (std::memcmp(p,&prototype,(&(p->data_rpi[0]) - (uint8_t*)p)) == 0) {
+                log.log_report((uint8_t*)ad,data_len);
+                return 1;
             }
         }
-        return 1;
     }
-    return 0;
-}
-
-int test_beacon_main() {
-    std::vector<uint8_t> rpi(16);
-    for (auto i = 0; i < 16; i++) rpi[i] = i;
-    CT_Beacon beacon;
-    beacon.start_advertising(rpi);
-    std::cout << "Advertising started..." << std::flush;
-    std::cin.get();
-    beacon.stop_advertising();
-    std::cout << "advertising stopped." << std::endl;
     return 0;
 }
 

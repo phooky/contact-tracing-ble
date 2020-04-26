@@ -1,6 +1,6 @@
 LIBS=-lgcrypt -lbluetooth
 TARGET=ctd
-SRCS=ct_crypto.cpp ct_beacon.cpp main.cpp
+SRCS=crypto.cpp bt.cpp main.cpp log.cpp
 OBJS=$(SRCS:.cpp=.o)
 CPP=g++
 CFLAGS=-std=c++17 

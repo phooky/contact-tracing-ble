@@ -1,5 +1,5 @@
-#include "ct_beacon.h"
-#include "ct_crypto.h"
+#include "bt.h"
+#include "crypto.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -17,43 +17,19 @@ void usage(char* const path, std::ostream& output) {
     output << "Usage: " << path << " [OPTION]" << std::endl;
     output << "  -v           verbose mode" << std::endl;
     output << "  -lLOGBASE    base of logfile path" << std::endl;
+    output << "  -d           debug logs (human-readable, includes addr)" << std::endl;
 }
-
-class LogBuilder {
-    const std::string base;
-    std::ofstream out;
-    const bool is_cout;
-    public:
-    LogBuilder(const std::string& logbase, const uint32_t dayNumber) : base(logbase), is_cout(logbase == "-") {
-        update(dayNumber);
-    }
-    ~LogBuilder() {
-        if (out.is_open()) out.close();
-    }
-
-    void update(const uint32_t dayNumber) {
-        if (!is_cout) {
-            if (out.is_open()) out.close();
-            std::stringstream ss(base);
-            ss << dayNumber << ".log";
-            out.open(ss.str(), std::ofstream::out | std::ofstream::binary | std::ofstream::app);
-        }
-    }
-    std::ostream& ostream() {
-        if (is_cout) return std::cout;
-        return out;
-    }
-
-};
 
 int main(int argc, char* const argv[]) {
     bool verbose = false;
+    bool debug = true;
     std::string logbase = "ct_log-";
     while (true) {
-        auto opt = getopt(argc,argv,"l:v");
+        auto opt = getopt(argc,argv,"l:vd");
         if (opt == -1) break;
         else if (opt == 'v') { verbose = true; }
         else if (opt == 'l') { logbase = optarg; }
+        else if (opt == 'd') { debug = true; }
         else {
             usage(argv[0],std::cout);
             return -1;
@@ -64,28 +40,30 @@ int main(int argc, char* const argv[]) {
     sig_action.sa_handler = on_signal;
     sigaction(SIGINT, &sig_action, NULL);
 
-    TracingKey tk("test.key");
+    TemporaryExposureKey tek;
     CT_Beacon beacon;
     beacon.reset();
-    auto [ day, time ] = getDayAndTimeInterval();
-    auto dtk = tk.daily_tracing_key(day);
     std::cerr << "Begin advertising." << std::endl;
-    beacon.start_advertising(make_rpi(dtk, time));
+    auto interval = getENIntervalNumber();
+    auto rpi = tek.make_rpi(interval);
+    std::vector<uint8_t> metadata { 0x10, 0x0f, 0x0, 0x0 };
+    beacon.start_advertising(rpi, tek.encrypt_aem(rpi,metadata));
     std::cerr << "Begin listening." << std::endl;
     beacon.start_listening();
-    LogBuilder log(logbase,day);
+    LogBuilder log(logbase,tek.get_valid_from(), debug);
     while (no_sig) {
-        auto [ cday, ctime ] = getDayAndTimeInterval();
-        if (cday != day) {
-            dtk = tk.daily_tracing_key(cday);
-            log.update(day);
+        if (!tek.is_still_valid()) {
+            tek = TemporaryExposureKey();
+            log.update(tek.get_valid_from());
         }
-        if (cday != day || ctime != ctime) { 
-            beacon.start_advertising(make_rpi(dtk, ctime));
-            day = cday;
-            time = ctime;
+        auto cur_interval = getENIntervalNumber();
+        if (cur_interval != interval) {
+            beacon.stop_advertising(); // advertising must halt before updating addr/params
+            auto rpi = tek.make_rpi(interval);
+            beacon.start_advertising(rpi, tek.encrypt_aem(rpi,metadata));
+            interval = cur_interval;
         }
-        beacon.log_to_stream(log.ostream(), 10000);
+        beacon.log(log, 10000);
     }
     std::cerr << "End listening." << std::endl;
     beacon.stop_listening();
