@@ -36,7 +36,7 @@ void LogBuilder::update(const uint32_t interval) {
     if (!is_cout) {
         if (out.is_open()) out.close();
         std::stringstream ss(base);
-        ss << interval << debug?".dbg_log" : ".log";
+        ss << "en-" << interval << (debug?".dbg_log" : ".log");
         auto mode = std::ofstream::out | std::ofstream::app;
         if (!debug) mode |= std::ofstream::binary;
         out.open(ss.str(), mode);
