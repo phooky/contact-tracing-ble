@@ -82,7 +82,7 @@ bool bdaddr_invalid(const bdaddr_t& a) {
     bool ones = true;
     for (auto i = 0; i < 6; i++) {
         zeros = zeros && (a.b[i] == 0);
-        ones = ones && (a.b[i] == (i==5)?0x3f:0xff);
+        ones = ones && (a.b[i] == ((i==5)?0x3f:0xff));
     }
     return zeros || ones;
 }
