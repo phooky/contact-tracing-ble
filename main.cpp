@@ -45,7 +45,9 @@ int main(int argc, char* const argv[]) {
     beacon.reset();
     std::cerr << "Begin advertising." << std::endl;
     auto interval = getENIntervalNumber();
-    beacon.start_advertising(tek.make_rpi(interval));
+    auto rpi = tek.make_rpi(interval);
+    std::vector<uint8_t> metadata { 0x10, 0x0f, 0x0, 0x0 };
+    beacon.start_advertising(rpi, tek.encrypt_aem(rpi,metadata));
     std::cerr << "Begin listening." << std::endl;
     beacon.start_listening();
     LogBuilder log(logbase,tek.get_valid_from(), debug);
@@ -57,7 +59,8 @@ int main(int argc, char* const argv[]) {
         auto cur_interval = getENIntervalNumber();
         if (cur_interval != interval) {
             beacon.stop_advertising(); // advertising must halt before updating addr/params
-            beacon.start_advertising(tek.make_rpi(interval));
+            auto rpi = tek.make_rpi(interval);
+            beacon.start_advertising(rpi, tek.encrypt_aem(rpi,metadata));
             interval = cur_interval;
         }
         beacon.log(log, 10000);

@@ -30,10 +30,13 @@ const static EN_packet prototype = {
     0x17, SERVICE_DATA16_TYPE, htobs(CT_SERVICE_UUID16),
 };
 
-uint8_t build_ct_packet(uint8_t* packet_data, const std::vector<uint8_t>& rpi) {
+uint8_t build_ct_packet(uint8_t* packet_data, 
+        const std::vector<uint8_t>& rpi,
+        const std::vector<uint8_t>& aem) {
     EN_packet* p = (EN_packet*)packet_data;
     *p = prototype;
     for (auto i = 0; i < 16; i++) p->data_rpi[i] = rpi[i];
+    for (auto i = 0; i < 4; i++) p->data_aem[i] = aem[i];
     return sizeof(EN_packet);
 }
 
@@ -84,7 +87,8 @@ bool bdaddr_invalid(const bdaddr_t& a) {
     return zeros || ones;
 }
 
-void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi) {
+void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi,
+        const std::vector<uint8_t>& aem) {
     //
     // Set random address (v4 sec E 7.8.52) */
     //
@@ -126,7 +130,7 @@ void CT_Beacon::start_advertising(const std::vector<uint8_t>& rpi) {
     // Set advertising data
     //
     le_set_advertising_data_cp adv_data_cp = {};
-    adv_data_cp.length = build_ct_packet(adv_data_cp.data,rpi);
+    adv_data_cp.length = build_ct_packet(adv_data_cp.data,rpi,aem);
     do_req(OCF_LE_SET_ADVERTISING_DATA, &adv_data_cp, LE_SET_ADVERTISING_DATA_CP_SIZE);
 }
 
@@ -201,18 +205,6 @@ int CT_Beacon::log(LogBuilder& log, int timeout_ms) {
             }
         }
     }
-    return 0;
-}
-
-int test_beacon_main() {
-    std::vector<uint8_t> rpi(16);
-    for (auto i = 0; i < 16; i++) rpi[i] = i;
-    CT_Beacon beacon;
-    beacon.start_advertising(rpi);
-    std::cout << "Advertising started..." << std::flush;
-    std::cin.get();
-    beacon.stop_advertising();
-    std::cout << "advertising stopped." << std::endl;
     return 0;
 }
 

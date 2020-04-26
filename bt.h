@@ -15,7 +15,7 @@ public:
     ~CT_Beacon();
     
     void reset();
-    void start_advertising(const std::vector<uint8_t> &rpi);
+    void start_advertising(const std::vector<uint8_t> &rpi, const std::vector<uint8_t> &aem);
     void stop_advertising();
 
     void start_listening();
