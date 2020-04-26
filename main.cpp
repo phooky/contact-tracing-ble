@@ -58,10 +58,10 @@ int main(int argc, char* const argv[]) {
         }
         auto cur_interval = getENIntervalNumber();
         if (cur_interval != interval) {
+            interval = cur_interval;
             beacon.stop_advertising(); // advertising must halt before updating addr/params
             auto rpi = tek.make_rpi(interval);
             beacon.start_advertising(rpi, tek.encrypt_aem(rpi,metadata));
-            interval = cur_interval;
         }
         beacon.log(log, 10000);
     }
