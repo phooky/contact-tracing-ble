@@ -22,12 +22,14 @@ void usage(char* const path, std::ostream& output) {
 
 int main(int argc, char* const argv[]) {
     bool verbose = false;
+    bool debug = true;
     std::string logbase = "ct_log-";
     while (true) {
-        auto opt = getopt(argc,argv,"l:v");
+        auto opt = getopt(argc,argv,"l:vd");
         if (opt == -1) break;
         else if (opt == 'v') { verbose = true; }
         else if (opt == 'l') { logbase = optarg; }
+        else if (opt == 'd') { debug = true; }
         else {
             usage(argv[0],std::cout);
             return -1;
@@ -46,7 +48,7 @@ int main(int argc, char* const argv[]) {
     beacon.start_advertising(tek.make_rpi(interval));
     std::cerr << "Begin listening." << std::endl;
     beacon.start_listening();
-    LogBuilder log(logbase,tek.get_valid_from());
+    LogBuilder log(logbase,tek.get_valid_from(), debug);
     while (no_sig) {
         if (!tek.is_still_valid()) {
             tek = TemporaryExposureKey();
