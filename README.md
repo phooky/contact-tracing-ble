@@ -3,7 +3,7 @@ BLE Exposure Notification daemon
 
 This is a rough implementation of the jointly developed [Apple/Google bluetooth
 exposure notification specification](https://www.apple.com/covid19/contacttracing),
-formerly know as contact tracing. The current implementation covers v1.1.
+formerly known as contact tracing. The current implementation covers v1.1.
 
 This implementation interacts directly with the HCI; it is not intended to be run
 in parallel with another bluetooth daemon. It's recommended that you stop the
