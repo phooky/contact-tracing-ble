@@ -106,7 +106,7 @@ std::vector<uint8_t> TemporaryExposureKey::encrypt_aem(const std::vector<uint8_t
     gcry_cipher_hd_t handle;
     gcry_cipher_open(&handle, GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_CTR, 0);
     gcry_cipher_setkey(handle,aem_key,16);
-    gcry_cipher_setiv(handle,rpi.data(),rpi.size());
+    gcry_cipher_setctr(handle,rpi.data(),rpi.size());
     std::vector<uint8_t> out(metadata.size());
     gcry_cipher_encrypt(handle, out.data(), out.size(), metadata.data(), metadata.size());
     gcry_cipher_close(handle);
