@@ -15,6 +15,9 @@ is the Raspberry Pi Zero W.
 
 (For a quick guide to setting this code up on a Raspberry Pi, see the `RPi_setup.md` document.)
 
+Official strategy guide: run it in debug mode and log to stdout to see EN packets as they come
+in. `sudo ./ctd -d -l -`
+
 Building and running the exposure notification daemon
 -----------------------------------------------
 
