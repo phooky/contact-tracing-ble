@@ -7,7 +7,7 @@
 
 uint32_t getENIntervalNumber();
 
-const uint32_t EKRollingPeriod = 144;
+const uint32_t TEKRollingPeriod = 144;
 
 class TemporaryExposureKey {
     uint8_t key[16];
