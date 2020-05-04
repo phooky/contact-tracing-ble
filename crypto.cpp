@@ -83,7 +83,7 @@ TemporaryExposureKey::TemporaryExposureKey(const::std::string& prefix) {
     // Generate RPI key
     HKDF(key, 16, NULL, 0, (const uint8_t*)"EN-RPIK", 7, rpi_key, 16);
     // Generate AEM key
-    HKDF(key, 16, NULL, 0, (const uint8_t*)"CT-AEMK", 7, aem_key, 16);
+    HKDF(key, 16, NULL, 0, (const uint8_t*)"EN-AEMK", 7, aem_key, 16);
 }
 
 bool TemporaryExposureKey::is_still_valid() {
