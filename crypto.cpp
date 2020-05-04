@@ -66,7 +66,7 @@ public:
 TemporaryExposureKey::TemporaryExposureKey(const::std::string& prefix) {
     // Validation period
     uint32_t cur_interval = getENIntervalNumber();
-    valid_from = (cur_interval / EKRollingPeriod) * EKRollingPeriod;
+    valid_from = (cur_interval / TEKRollingPeriod) * TEKRollingPeriod;
     // Load or generate key
     std::stringstream ss(prefix);
     ss << valid_from << ".tek";
@@ -88,7 +88,7 @@ TemporaryExposureKey::TemporaryExposureKey(const::std::string& prefix) {
 
 bool TemporaryExposureKey::is_still_valid() {
     uint32_t cur_interval = getENIntervalNumber();
-    return cur_interval < (valid_from + EKRollingPeriod);
+    return cur_interval < (valid_from + TEKRollingPeriod);
 }
 
 std::vector<uint8_t> TemporaryExposureKey::make_rpi(uint32_t intervalNumber) {
