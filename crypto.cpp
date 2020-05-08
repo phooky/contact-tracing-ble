@@ -1,4 +1,3 @@
-#include <time.h>
 #include <tuple>
 #include <gcrypt.h>
 #include <fstream>
@@ -8,9 +7,9 @@
 #include <vector>
 #include "crypto.h"
 
-uint32_t getENIntervalNumber() {
-    time_t t = time(NULL);
+uint32_t getENIntervalNumber(time_t t, bool align) {
     uint32_t intervalNumber = t / (60*10);
+    if (align) return (intervalNumber / TEKRollingPeriod) * TEKRollingPeriod;
     return intervalNumber;
 }
 
@@ -63,10 +62,9 @@ public:
     return expand_mac.read(buf,16);
 }
 
-TemporaryExposureKey::TemporaryExposureKey(const::std::string& prefix) {
+TemporaryExposureKey::TemporaryExposureKey(const std::string& prefix) {
     // Validation period
-    uint32_t cur_interval = getENIntervalNumber();
-    valid_from = (cur_interval / TEKRollingPeriod) * TEKRollingPeriod;
+    valid_from = getENIntervalNumber(time(NULL), true); // align to rolling period
     // Load or generate key
     std::stringstream ss(prefix);
     ss << valid_from << ".tek";
@@ -80,10 +78,20 @@ TemporaryExposureKey::TemporaryExposureKey(const::std::string& prefix) {
         outf.write((const char*)key, 16);
         outf.close();
     }
+    generate_keys();
+}
+
+void TemporaryExposureKey::generate_keys() {
     // Generate RPI key
     HKDF(key, 16, NULL, 0, (const uint8_t*)"EN-RPIK", 7, rpi_key, 16);
     // Generate AEM key
     HKDF(key, 16, NULL, 0, (const uint8_t*)"EN-AEMK", 7, aem_key, 16);
+}
+
+TemporaryExposureKey::TemporaryExposureKey(const uint8_t* key_data, uint32_t interval) {
+    valid_from = interval;
+    for (auto i = 0; i < 16; i++) { key[i] = key_data[i]; }
+    generate_keys();
 }
 
 bool TemporaryExposureKey::is_still_valid() {
